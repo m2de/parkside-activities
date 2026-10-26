@@ -4,7 +4,7 @@ export interface ScheduleSession {
   start_time: string
   duration_minutes: number
   capacity: number
-  bookings: number
+	booked_places: number
 }
 
 interface Props {
@@ -20,8 +20,8 @@ export default function ScheduleTable({ sessions }: Props) {
             <th>Time</th>
             <th>Activity</th>
             <th>Duration</th>
-            <th>Capacity</th>
-            <th>Bookings</th>
+						<th>Capacity (places)</th>
+						<th>Places booked</th>
           </tr>
         </thead>
         <tbody>
@@ -31,7 +31,7 @@ export default function ScheduleTable({ sessions }: Props) {
               <td>{session.activity}</td>
               <td>{session.duration_minutes} min</td>
               <td>{session.capacity}</td>
-              <td>{session.bookings}</td>
+							<td>{session.booked_places}</td>
             </tr>
           ))}
         </tbody>
