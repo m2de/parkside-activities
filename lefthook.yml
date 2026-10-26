@@ -1,0 +1,9 @@
+pre-commit:
+  commands:
+    build:
+      glob: "*.cs"
+      run: dotnet build Parkside.Api && dotnet build Parkside.Seed
+    typecheck:
+      root: "web/"
+      glob: "*.{ts,tsx}"
+      run: npm run typecheck
