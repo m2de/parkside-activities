@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.Data.Sqlite;
 using Parkside.Api;
 using Xunit;
@@ -69,15 +70,15 @@ public class ReportingTests : IDisposable
     public void HeadlineStats_TotalsTheBookingsAndPlacesBookedAcrossTheDay()
     {
         var stats = Reporting.HeadlineStats(_db, "2026-03-14");
-        Assert.Equal(7, stats.BookingCount);
-        Assert.Equal(22, stats.BookedPlaces);
+        Assert.Equal(5, stats.BookingCount);
+        Assert.Equal(19, stats.BookedPlaces);
     }
 
     [Fact]
     public void HeadlineStats_CalculatesOccupancyAsAWholeNumberPercentageOfCapacity()
     {
         var stats = Reporting.HeadlineStats(_db, "2026-03-14");
-        Assert.Equal(52, stats.OccupancyPct);
+        Assert.Equal(45, stats.OccupancyPct);
     }
 
     [Fact]
@@ -85,7 +86,7 @@ public class ReportingTests : IDisposable
     {
         var stats = Reporting.HeadlineStats(_db, "2026-03-14");
         Assert.Equal(2, stats.CancelledCount);
-        Assert.Equal(3.1, stats.AveragePartySize);
+        Assert.Equal(3.8, stats.AveragePartySize);
     }
 
     [Fact]
@@ -107,17 +108,34 @@ public class ReportingTests : IDisposable
     // ScheduleForDay
 
     [Fact]
-    public void ScheduleForDay_ListsTheDaysSessionsInStartTimeOrderWithTheirBookingCounts()
+	public void ScheduleForDay_ListsTheDaysSessionsInStartTimeOrderWithTheirPlacesBooked()
     {
         var schedule = Reporting.ScheduleForDay(_db, "2026-03-14");
         Assert.Equal(
             [
-                ("Archery", "09:00", 12, 4),
-                ("Aqua Fit", "09:30", 20, 2),
-                ("Pottery", "14:00", 10, 1),
+				("Archery", "09:00", 12, 12),
+				("Aqua Fit", "09:30", 20, 5),
+				("Pottery", "14:00", 10, 2),
             ],
-            schedule.Select(s => (s.Activity, s.StartTime, s.Capacity, s.Bookings)));
+			schedule.Select(s => (s.Activity, s.StartTime, s.Capacity, s.BookedPlaces)));
     }
+
+	[Fact]
+	public void ScheduleForDay_CountsAPartyOfSixAsSixPlacesNotOneBooking()
+	{
+		var schedule = Reporting.ScheduleForDay(_db, "2026-03-15");
+		var archery = Assert.Single(schedule);
+		Assert.Equal((12, 6), (archery.Capacity, archery.BookedPlaces));
+	}
+
+	[Fact]
+	public void ScheduleForDay_SerializesPlacesBookedAsSnakeCaseBookedPlaces()
+	{
+		var entry = Reporting.ScheduleForDay(_db, "2026-03-15").Single();
+		var json = JsonSerializer.Serialize(entry, JsonSerializerOptions.Web);
+		Assert.Contains("\"booked_places\":6", json);
+		Assert.DoesNotContain("\"bookings\"", json);
+	}
 
     [Fact]
     public void ScheduleForDay_DoesNotIncludeSessionsFromOtherDays()
@@ -136,12 +154,73 @@ public class ReportingTests : IDisposable
         var totals = Reporting.ActivityTotals(_db, "2026-03-14");
         Assert.Equal(
             [
-                new ActivityTotal(Activity: "Archery", SessionCount: 1, BookingCount: 4, BookedPlaces: 14),
-                new ActivityTotal(Activity: "Aqua Fit", SessionCount: 1, BookingCount: 2, BookedPlaces: 6),
+                new ActivityTotal(Activity: "Archery", SessionCount: 1, BookingCount: 3, BookedPlaces: 12),
+                new ActivityTotal(Activity: "Aqua Fit", SessionCount: 1, BookingCount: 1, BookedPlaces: 5),
                 new ActivityTotal(Activity: "Pottery", SessionCount: 1, BookingCount: 1, BookedPlaces: 2),
             ],
             totals);
     }
+
+	// Cancelled bookings (issue #1)
+
+	// A day with one session holding a mix of confirmed and cancelled bookings,
+	// and another whose only booking has been cancelled.
+	private void SeedDayWithCancellations()
+	{
+		Exec("""
+			INSERT INTO sessions (id, activity, date, start_time, duration_minutes, capacity) VALUES
+			  (5, 'Climbing', '2026-03-16', '10:00', 60, 8),
+			  (6, 'Yoga', '2026-03-16', '11:00', 45, 10);
+			INSERT INTO bookings (session_id, guest_name, party_size, status, created_at) VALUES
+			  (5, 'Iris Jones', 2, 'confirmed', '2026-03-09T10:00:00Z'),
+			  (5, 'Jack Kemp', 4, 'confirmed', '2026-03-09T11:00:00Z'),
+			  (5, 'Kate Lowe', 3, 'cancelled', '2026-03-09T12:00:00Z'),
+			  (6, 'Liam Moss', 5, 'cancelled', '2026-03-10T09:00:00Z');
+			""");
+	}
+
+	[Fact]
+	public void HeadlineStats_LeavesCancelledBookingsOutOfBookingsPlacesOccupancyAndPartySize()
+	{
+		SeedDayWithCancellations();
+		var stats = Reporting.HeadlineStats(_db, "2026-03-16");
+		Assert.Equal(
+			new HeadlineStats(
+				SessionCount: 2,
+				BookingCount: 2,
+				TotalCapacity: 18,
+				BookedPlaces: 6,
+				OccupancyPct: 33,
+				CancelledCount: 2,
+				AveragePartySize: 3.0),
+			stats);
+	}
+
+	[Fact]
+	public void ScheduleForDay_LeavesCancelledBookingsOutAndStillListsSessionsWithOnlyCancellations()
+	{
+		SeedDayWithCancellations();
+		var schedule = Reporting.ScheduleForDay(_db, "2026-03-16");
+		Assert.Equal(
+			[
+				("Climbing", "10:00", 8, 6),
+				("Yoga", "11:00", 10, 0),
+			],
+			schedule.Select(s => (s.Activity, s.StartTime, s.Capacity, s.BookedPlaces)));
+	}
+
+	[Fact]
+	public void ActivityTotals_LeavesCancelledBookingsOutAndStillListsActivitiesWithOnlyCancellations()
+	{
+		SeedDayWithCancellations();
+		var totals = Reporting.ActivityTotals(_db, "2026-03-16");
+		Assert.Equal(
+			[
+				new ActivityTotal(Activity: "Climbing", SessionCount: 1, BookingCount: 2, BookedPlaces: 6),
+				new ActivityTotal(Activity: "Yoga", SessionCount: 1, BookingCount: 0, BookedPlaces: 0),
+			],
+			totals);
+	}
 
     // BookingsForDay
 

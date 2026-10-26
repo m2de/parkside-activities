@@ -33,7 +33,7 @@ public record ScheduleEntry(
     [property: JsonPropertyName("start_time")] string StartTime,
     [property: JsonPropertyName("duration_minutes")] int DurationMinutes,
     int Capacity,
-    int Bookings);
+	[property: JsonPropertyName("booked_places")] int BookedPlaces);
 
 public record ActivityTotal(
     string Activity,
@@ -68,7 +68,7 @@ public static class Reporting
               COUNT(b.id) AS bookingCount,
               COALESCE(SUM(b.party_size), 0) AS bookedPlaces
             FROM sessions s
-            LEFT JOIN bookings b ON b.session_id = s.id
+            LEFT JOIN bookings b ON b.session_id = s.id AND b.status <> 'cancelled'
             WHERE s.date = $date
             GROUP BY s.id
             ORDER BY s.start_time, s.activity
@@ -118,7 +118,7 @@ public static class Reporting
             SELECT AVG(b.party_size) AS avgPartySize
             FROM bookings b
             JOIN sessions s ON s.id = b.session_id
-            WHERE s.date = $date
+            WHERE s.date = $date AND b.status <> 'cancelled'
             """,
             r => r.IsDBNull("avgPartySize") ? (double?)null : r.GetDouble("avgPartySize"),
             ("$date", date)).Single();
@@ -137,7 +137,8 @@ public static class Reporting
             averagePartySize);
     }
 
-    // Rows for the schedule table.
+	// Rows for the schedule table. Each session reports places booked (the sum of
+	// party sizes), not the number of bookings, so it compares with capacity.
     public static List<ScheduleEntry> ScheduleForDay(SqliteConnection db, string date)
     {
         return SessionsWithBookings(db, date)
@@ -147,7 +148,7 @@ public static class Reporting
                 s.StartTime,
                 s.DurationMinutes,
                 s.Capacity,
-                s.BookingCount))
+				s.BookedPlaces))
             .ToList();
     }
 
@@ -162,7 +163,7 @@ public static class Reporting
               COUNT(b.id) AS bookingCount,
               COALESCE(SUM(b.party_size), 0) AS bookedPlaces
             FROM sessions s
-            LEFT JOIN bookings b ON b.session_id = s.id
+            LEFT JOIN bookings b ON b.session_id = s.id AND b.status <> 'cancelled'
             WHERE s.date = $date
             GROUP BY s.activity
             ORDER BY bookedPlaces DESC

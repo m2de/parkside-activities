@@ -18,8 +18,8 @@ export default function ActivityTotals({ activities }: Props) {
           <tr>
             <th>Activity</th>
             <th>Sessions</th>
-            <th>Bookings</th>
-            <th>Places</th>
+						<th>Bookings (parties)</th>
+						<th>Places booked</th>
           </tr>
         </thead>
         <tbody>
