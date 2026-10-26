@@ -20,23 +20,27 @@ export default function StatCards({ stats }: Props) {
         <div className="stat-value">{stats.sessionCount}</div>
       </div>
       <div className="stat-card">
-        <div className="stat-label">Bookings</div>
+				<div className="stat-label">Bookings (parties)</div>
         <div className="stat-value">{stats.bookingCount}</div>
       </div>
+			<div className="stat-card">
+				<div className="stat-label">Places booked</div>
+				<div className="stat-value">{stats.bookedPlaces}</div>
+			</div>
       <div className="stat-card">
-        <div className="stat-label">Capacity</div>
+				<div className="stat-label">Capacity (places)</div>
         <div className="stat-value">{stats.totalCapacity}</div>
       </div>
       <div className="stat-card">
-        <div className="stat-label">Occupancy</div>
+				<div className="stat-label">Occupancy (places)</div>
         <div className="stat-value">{stats.occupancyPct}%</div>
       </div>
       <div className="stat-card">
-        <div className="stat-label">Cancelled</div>
+				<div className="stat-label">Cancelled bookings</div>
         <div className="stat-value">{stats.cancelledCount}</div>
       </div>
       <div className="stat-card">
-        <div className="stat-label">Avg Party</div>
+				<div className="stat-label">Avg party size (places)</div>
         <div className="stat-value">{stats.averagePartySize}</div>
       </div>
     </div>

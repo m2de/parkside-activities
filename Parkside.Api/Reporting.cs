@@ -33,7 +33,7 @@ public record ScheduleEntry(
     [property: JsonPropertyName("start_time")] string StartTime,
     [property: JsonPropertyName("duration_minutes")] int DurationMinutes,
     int Capacity,
-    int Bookings);
+	[property: JsonPropertyName("booked_places")] int BookedPlaces);
 
 public record ActivityTotal(
     string Activity,
@@ -137,7 +137,8 @@ public static class Reporting
             averagePartySize);
     }
 
-    // Rows for the schedule table.
+	// Rows for the schedule table. Each session reports places booked (the sum of
+	// party sizes), not the number of bookings, so it compares with capacity.
     public static List<ScheduleEntry> ScheduleForDay(SqliteConnection db, string date)
     {
         return SessionsWithBookings(db, date)
@@ -147,7 +148,7 @@ public static class Reporting
                 s.StartTime,
                 s.DurationMinutes,
                 s.Capacity,
-                s.BookingCount))
+				s.BookedPlaces))
             .ToList();
     }
 

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.Data.Sqlite;
 using Parkside.Api;
 using Xunit;
@@ -107,17 +108,34 @@ public class ReportingTests : IDisposable
     // ScheduleForDay
 
     [Fact]
-    public void ScheduleForDay_ListsTheDaysSessionsInStartTimeOrderWithTheirBookingCounts()
+	public void ScheduleForDay_ListsTheDaysSessionsInStartTimeOrderWithTheirPlacesBooked()
     {
         var schedule = Reporting.ScheduleForDay(_db, "2026-03-14");
         Assert.Equal(
             [
-                ("Archery", "09:00", 12, 3),
-                ("Aqua Fit", "09:30", 20, 1),
-                ("Pottery", "14:00", 10, 1),
+				("Archery", "09:00", 12, 12),
+				("Aqua Fit", "09:30", 20, 5),
+				("Pottery", "14:00", 10, 2),
             ],
-            schedule.Select(s => (s.Activity, s.StartTime, s.Capacity, s.Bookings)));
+			schedule.Select(s => (s.Activity, s.StartTime, s.Capacity, s.BookedPlaces)));
     }
+
+	[Fact]
+	public void ScheduleForDay_CountsAPartyOfSixAsSixPlacesNotOneBooking()
+	{
+		var schedule = Reporting.ScheduleForDay(_db, "2026-03-15");
+		var archery = Assert.Single(schedule);
+		Assert.Equal((12, 6), (archery.Capacity, archery.BookedPlaces));
+	}
+
+	[Fact]
+	public void ScheduleForDay_SerializesPlacesBookedAsSnakeCaseBookedPlaces()
+	{
+		var entry = Reporting.ScheduleForDay(_db, "2026-03-15").Single();
+		var json = JsonSerializer.Serialize(entry, JsonSerializerOptions.Web);
+		Assert.Contains("\"booked_places\":6", json);
+		Assert.DoesNotContain("\"bookings\"", json);
+	}
 
     [Fact]
     public void ScheduleForDay_DoesNotIncludeSessionsFromOtherDays()
@@ -185,10 +203,10 @@ public class ReportingTests : IDisposable
 		var schedule = Reporting.ScheduleForDay(_db, "2026-03-16");
 		Assert.Equal(
 			[
-				("Climbing", "10:00", 8, 2),
+				("Climbing", "10:00", 8, 6),
 				("Yoga", "11:00", 10, 0),
 			],
-			schedule.Select(s => (s.Activity, s.StartTime, s.Capacity, s.Bookings)));
+			schedule.Select(s => (s.Activity, s.StartTime, s.Capacity, s.BookedPlaces)));
 	}
 
 	[Fact]
