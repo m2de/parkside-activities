@@ -68,7 +68,7 @@ public static class Reporting
               COUNT(b.id) AS bookingCount,
               COALESCE(SUM(b.party_size), 0) AS bookedPlaces
             FROM sessions s
-            LEFT JOIN bookings b ON b.session_id = s.id
+            LEFT JOIN bookings b ON b.session_id = s.id AND b.status <> 'cancelled'
             WHERE s.date = $date
             GROUP BY s.id
             ORDER BY s.start_time, s.activity
@@ -118,7 +118,7 @@ public static class Reporting
             SELECT AVG(b.party_size) AS avgPartySize
             FROM bookings b
             JOIN sessions s ON s.id = b.session_id
-            WHERE s.date = $date
+            WHERE s.date = $date AND b.status <> 'cancelled'
             """,
             r => r.IsDBNull("avgPartySize") ? (double?)null : r.GetDouble("avgPartySize"),
             ("$date", date)).Single();
@@ -162,7 +162,7 @@ public static class Reporting
               COUNT(b.id) AS bookingCount,
               COALESCE(SUM(b.party_size), 0) AS bookedPlaces
             FROM sessions s
-            LEFT JOIN bookings b ON b.session_id = s.id
+            LEFT JOIN bookings b ON b.session_id = s.id AND b.status <> 'cancelled'
             WHERE s.date = $date
             GROUP BY s.activity
             ORDER BY bookedPlaces DESC
