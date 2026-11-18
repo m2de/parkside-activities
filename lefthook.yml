@@ -1,0 +1,5 @@
+pre-commit:
+  commands:
+    typecheck:
+      glob: "*.{ts,tsx}"
+      run: npm run typecheck
